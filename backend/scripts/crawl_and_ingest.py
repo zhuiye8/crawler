@@ -57,9 +57,7 @@ async def ingest_articles(articles: list):
                 # 清理内容
                 content_text = clean_html(content_html) if content_html else content_text
 
-                # 初始化微信内容字段
-                wechat_content_html = None
-                wechat_content_text = None
+                # 初始化内容源标记
                 content_source = "pharnexcloud"
 
                 # 如果找到微信原文链接且启用了微信爬取
@@ -123,11 +121,6 @@ async def ingest_articles(articles: list):
                 s3_client.upload_text(content_html or "", settings.S3_BUCKET_RAW, s3_key_raw)
                 s3_client.upload_text(content_text, settings.S3_BUCKET_CLEAN, s3_key_clean)
 
-                # 如果有微信内容，也保存微信版本
-                if wechat_content_html:
-                    s3_key_wechat = f"{article_id}/wechat_original.html"
-                    s3_client.upload_text(wechat_content_html, settings.S3_BUCKET_RAW, s3_key_wechat)
-
                 if deleted_article:
                     # 更新已删除文章的数据并恢复
                     deleted_article.title = article_data["title"]
@@ -138,10 +131,9 @@ async def ingest_articles(articles: list):
                     deleted_article.published_at = article_data["published_at"]
                     deleted_article.content_url = article_data["url"]
                     deleted_article.content_text = content_text
+                    deleted_article.content_html = content_html
                     deleted_article.content_source = content_source
                     deleted_article.original_source_url = original_source_url or None
-                    deleted_article.wechat_content_html = wechat_content_html
-                    deleted_article.wechat_content_text = wechat_content_text
                     deleted_article.crawled_at = tz.now()
                     deleted_article.is_deleted = False  # 恢复文章
 
@@ -161,10 +153,9 @@ async def ingest_articles(articles: list):
                         published_at=article_data["published_at"],
                         content_url=article_data["url"],
                         content_text=content_text,
+                        content_html=content_html,
                         content_source=content_source,
                         original_source_url=original_source_url or None,
-                        wechat_content_html=wechat_content_html,
-                        wechat_content_text=wechat_content_text,
                         canonical_hash=canonical_hash,
                     )
 
