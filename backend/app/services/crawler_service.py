@@ -81,6 +81,11 @@ class CrawlerService:
     async def _run_crawler_task(self, task_id: int, config: dict):
         """Execute crawler task (background)"""
 
+        # 确保 Windows 上的事件循环策略正确（支持子进程）
+        import sys
+        if sys.platform == 'win32':
+            asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
         self._current_task_id = task_id
         self._is_running = True
         self._progress = {"status": "starting", "articles_crawled": 0}

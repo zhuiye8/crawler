@@ -6,8 +6,9 @@
 
 **技术栈**:
 - **后端**: Python 3.11 + FastAPI + PostgreSQL + Redis + MinIO
-- **前端**: React 18 + TypeScript + Vite + Ant Design
-- **AI**: OpenAI GPT-4 + LangChain
+- **管理前端**: Vue 3 + TypeScript + Vite + Element Plus
+- **H5前端**: Vue 3 + TypeScript + Vite + Vant
+- **AI**: DeepSeek API (兼容OpenAI SDK)
 - **爬虫**: Patchright (Playwright fork)
 - **任务调度**: APScheduler
 
@@ -32,6 +33,7 @@ medical-news-mvp/
 │   │   │
 │   │   ├── services/                 # 业务逻辑层
 │   │   │   ├── __init__.py
+│   │   │   ├── ai_service.py         # AI分析服务（DeepSeek）
 │   │   │   ├── rag_service.py        # RAG问答服务
 │   │   │   └── crawler_service.py    # 爬虫服务
 │   │   │
@@ -75,18 +77,32 @@ medical-news-mvp/
 │   ├── requirements.txt              # Python依赖
 │   └── pyproject.toml                # Python项目配置
 │
-├── admin-frontend/                   # 管理端前端
+├── admin-frontend/                   # 管理端前端（Vue 3 + Element Plus）
 │   ├── src/
-│   │   ├── components/               # React组件
-│   │   ├── pages/                    # 页面组件
-│   │   ├── services/                 # API服务
-│   │   ├── types/                    # TypeScript类型定义
-│   │   ├── App.tsx                   # 根组件
-│   │   └── main.tsx                  # 入口文件
+│   │   ├── api/                      # API客户端
+│   │   │   └── admin.ts              # 管理端API接口
+│   │   ├── components/               # Vue组件
+│   │   ├── views/                    # 页面组件
+│   │   │   ├── Dashboard.vue         # 仪表盘
+│   │   │   ├── Articles.vue          # 文章管理（含AI分析）
+│   │   │   └── Crawler.vue           # 爬虫管理
+│   │   ├── router/                   # Vue Router配置
+│   │   ├── stores/                   # Pinia状态管理
+│   │   ├── App.vue                   # 根组件
+│   │   └── main.ts                   # 入口文件
 │   │
 │   ├── public/                       # 静态资源
 │   ├── package.json                  # NPM依赖
 │   ├── tsconfig.json                 # TypeScript配置
+│   └── vite.config.ts                # Vite配置
+│
+├── frontend/                         # H5前端（Vue 3 + Vant）
+│   ├── src/
+│   │   ├── api/                      # API客户端
+│   │   ├── views/                    # 页面组件
+│   │   ├── App.vue                   # 根组件
+│   │   └── main.ts                   # 入口文件
+│   ├── package.json                  # NPM依赖
 │   └── vite.config.ts                # Vite配置
 │
 ├── docker-compose.yml                # Docker编排配置
@@ -109,6 +125,7 @@ medical-news-mvp/
 **公开文章API** (`articles.py`):
 - 文章列表（分页、过滤）
 - 文章详情（含AI分析）
+- AI分析生成（支持缓存和强制重新生成）
 
 **聊天API** (`chat.py`):
 - RAG问答接口
@@ -120,6 +137,12 @@ medical-news-mvp/
 - `analytics.py`: 数据统计、趋势分析、来源分布
 
 ### 2. 业务逻辑层 (`app/services/`)
+
+**AI分析服务** (`ai_service.py`):
+- 使用DeepSeek API进行文章智能分析
+- 150-250字专业医药行业分析
+- 中文输出，易懂且专业
+- 自动缓存机制，避免重复调用
 
 **RAG服务** (`rag_service.py`):
 - 向量检索（使用pgvector）
@@ -197,10 +220,13 @@ medical-news-mvp/
 ```python
 - id: Integer
 - article_id: Integer (外键)
-- summary: Text
-- key_points: ARRAY(String)
-- entities: JSONB
-- embedding: Vector(1536) (pgvector)
+- version_no: Integer (文章版本号)
+- summary: Text (存储AI分析文字，150-250字)
+- key_points: ARRAY(String) (预留字段，当前未使用)
+- entities: JSONB (预留字段，当前未使用)
+- model_name: String (AI模型名称，如"deepseek-chat")
+- created_at: DateTime
+- updated_at: DateTime
 ```
 
 ### 5. 定时任务 (`app/tasks/cleanup.py`)
@@ -301,8 +327,11 @@ S3_SECRET_KEY=minioadmin
 S3_BUCKET_RAW=medical-news-raw
 S3_BUCKET_CLEAN=medical-news-clean
 
-# OpenAI
-OPENAI_API_KEY=sk-...
+# DeepSeek AI (兼容OpenAI SDK)
+AI_API_KEY=sk-...
+AI_API_BASE=https://api.deepseek.com
+AI_MODEL_CHAT=deepseek-chat
+EMBEDDING_ENABLED=false
 
 # JWT
 JWT_SECRET_KEY=your-secret-key-change-this-in-production
@@ -366,15 +395,23 @@ python scripts/init_db.py
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-**5. 启动前端**:
+**5. 启动管理前端**:
 ```bash
 cd admin-frontend
 npm install
 npm run dev
 ```
 
+**6. 启动H5前端**:
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
 **访问地址**:
-- 前端: http://localhost:5173
+- 管理前端: http://localhost:5173
+- H5前端: http://localhost:5174 (自动分配端口)
 - 后端API: http://localhost:8000
 - API文档: http://localhost:8000/docs
 - MinIO控制台: http://localhost:9001
@@ -437,7 +474,26 @@ npm run dev
 - 复用浏览器会话
 - 减少验证码风险
 
-### 5. 定时清理
+### 5. AI智能分析
+
+**DeepSeek API集成**:
+- 使用DeepSeek模型进行文章智能分析
+- 兼容OpenAI SDK，易于集成
+- 成本更低，响应更快
+
+**分析特性**:
+- 自动生成150-250字专业分析
+- 医药行业专业术语理解
+- 简体中文输出，专业且易懂
+- 智能缓存机制，避免重复分析
+
+**前端集成**:
+- 管理后台一键生成AI分析
+- 支持查看已有分析
+- 支持强制重新生成
+- 实时显示分析进度
+
+### 6. 定时清理
 
 **APScheduler调度**:
 - 每天凌晨3:00执行
@@ -538,4 +594,4 @@ chore: 构建/工具变更
 
 如有问题，请联系项目维护团队。
 
-**最后更新**: 2025-11-03
+**最后更新**: 2025-11-03 (v1.1.0 - 新增AI智能分析功能)

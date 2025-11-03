@@ -149,19 +149,150 @@
             {{ currentArticle.summary || '无' }}
           </el-descriptions-item>
         </el-descriptions>
+
+        <!-- AI分析部分 -->
+        <el-divider content-position="left">AI智能分析</el-divider>
+        <div class="ai-analysis-section">
+          <div v-if="!aiAnalysis && !aiLoading" class="no-ai-analysis">
+            <el-empty description="暂无AI分析" />
+            <el-button
+              type="primary"
+              :loading="aiLoading"
+              @click="handleGenerateAI"
+            >
+              生成AI分析
+            </el-button>
+          </div>
+
+          <el-skeleton v-if="aiLoading" :rows="5" animated />
+
+          <div v-if="aiAnalysis && !aiLoading" class="ai-result">
+            <div class="ai-analysis-content">
+              <p>{{ aiAnalysis.analysis }}</p>
+            </div>
+
+            <el-button
+              type="primary"
+              :loading="aiLoading"
+              @click="handleGenerateAI"
+              style="margin-top: 16px"
+            >
+              重新生成
+            </el-button>
+          </div>
+        </div>
+
+        <!-- AI翻译部分 -->
+        <el-divider content-position="left">AI智能翻译</el-divider>
+        <div class="translation-section">
+          <div v-if="!translation && !translationLoading" class="no-translation">
+            <el-empty description="暂无翻译内容" />
+            <el-button
+              type="success"
+              :loading="translationLoading"
+              @click="handleGenerateTranslation"
+            >
+              生成翻译
+            </el-button>
+          </div>
+
+          <el-skeleton v-if="translationLoading" :rows="5" animated />
+
+          <div v-if="translation && !translationLoading" class="translation-result">
+            <div v-if="translation.is_chinese" class="chinese-notice">
+              <el-alert
+                title="检测到中文文章"
+                description="该文章为中文内容，无需翻译"
+                type="info"
+                show-icon
+                :closable="false"
+              />
+            </div>
+
+            <div v-else class="translation-content">
+              <h4>HTML翻译内容：</h4>
+              <div class="translated-html">
+                <div v-if="translation.translated_content_html" class="translated-html-preview">
+                  <el-row :gutter="16">
+                    <el-col :span="12">
+                      <el-button type="primary" size="small" @click="showTranslationPreview = true">
+                        预览翻译结果
+                      </el-button>
+                      <small style="margin-left: 10px;">
+                        已翻译（{{ translation.translated_content_html.length }} 字符）
+                      </small>
+                    </el-col>
+                    <el-col :span="12">
+                      <el-button
+                        type="info"
+                        size="small"
+                        @click="copyTranslationToClipboard"
+                        style="float: right;"
+                      >
+                        复制HTML内容
+                      </el-button>
+                    </el-col>
+                  </el-row>
+                </div>
+                <div v-else>
+                  <el-alert
+                    title="翻译内容为空"
+                    description="翻译结果为空，请重新生成翻译"
+                    type="warning"
+                    show-icon
+                    :closable="false"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <el-button
+              type="success"
+              :loading="translationLoading"
+              @click="handleGenerateTranslation"
+              style="margin-top: 16px"
+            >
+              重新翻译
+            </el-button>
+          </div>
+        </div>
+      </div>
+    </el-dialog>
+
+    <!-- 翻译预览对话框 -->
+    <el-dialog
+      v-model="showTranslationPreview"
+      title="翻译预览"
+      width="80%"
+      :close-on-click-modal="false"
+    >
+      <div class="translation-preview">
+        <div v-if="translation?.translated_content_html" class="preview-content">
+          <div class="preview-header">
+            <el-button type="info" size="small" @click="copyTranslationToClipboard">
+              复制HTML代码
+            </el-button>
+          </div>
+          <div class="preview-html" v-html="translation.translated_content_html"></div>
+        </div>
+        <div v-else class="no-translation">
+          <el-empty description="暂无翻译内容" />
+        </div>
       </div>
     </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Delete } from '@element-plus/icons-vue'
 import {
   getArticles,
   deleteArticle,
   batchDeleteArticles,
+  generateAIAnalysis,
+  generateTranslation,
   type Article
 } from '../api/admin'
 
@@ -186,6 +317,15 @@ const selectedIds = ref<number[]>([])
 // 对话框
 const dialogVisible = ref(false)
 const currentArticle = ref<Article | null>(null)
+
+// AI分析相关
+const aiAnalysis = ref<any>(null)
+const aiLoading = ref(false)
+
+// 翻译相关
+const translation = ref<any>(null)
+const translationLoading = ref(false)
+const showTranslationPreview = ref(false)
 
 // 加载文章列表
 const loadArticles = async () => {
@@ -228,9 +368,28 @@ const handleSelectionChange = (selection: Article[]) => {
 }
 
 // 查看详情
-const handleView = (article: Article) => {
+const handleView = async (article: Article) => {
   currentArticle.value = article
   dialogVisible.value = true
+
+  // 自动加载AI分析（如果已有则直接返回，不会重新生成）
+  if (article.id) {
+    aiLoading.value = true
+    try {
+      const response = await generateAIAnalysis(article.id, false)
+      // response.data 是后端返回的完整对象: { success, message, data: { analysis } }
+      // 我们需要提取 response.data.data
+      if (response.data && response.data.data) {
+        aiAnalysis.value = response.data.data
+      }
+    } catch (error: any) {
+      console.error('加载AI分析失败:', error)
+      // 如果是404或其他错误，说明还没有AI分析，不显示错误
+      aiAnalysis.value = null
+    } finally {
+      aiLoading.value = false
+    }
+  }
 }
 
 // 删除文章
@@ -290,6 +449,73 @@ const formatDate = (dateStr: string) => {
     minute: '2-digit'
   })
 }
+
+// 生成AI分析
+const handleGenerateAI = async () => {
+  if (!currentArticle.value) return
+
+  // 如果已有分析，则是重新生成，需要传递force_regenerate=true
+  const isRegenerate = !!aiAnalysis.value
+
+  aiLoading.value = true
+  try {
+    const response = await generateAIAnalysis(currentArticle.value.id, isRegenerate)
+    // response.data 是后端返回的完整对象: { success, message, data: { analysis } }
+    // 我们需要提取 response.data.data
+    aiAnalysis.value = response.data.data
+    ElMessage.success(isRegenerate ? 'AI分析重新生成成功' : 'AI分析生成成功')
+  } catch (error: any) {
+    console.error('AI分析失败:', error)
+    ElMessage.error(error.response?.data?.detail || 'AI分析失败，请检查DeepSeek API配置')
+  } finally {
+    aiLoading.value = false
+  }
+}
+
+// 生成翻译
+const handleGenerateTranslation = async () => {
+  if (!currentArticle.value) return
+
+  // 如果已有翻译，则是重新翻译，需要传递force_regenerate=true
+  const isRegenerate = !!translation.value
+
+  translationLoading.value = true
+  try {
+    const response = await generateTranslation(currentArticle.value.id, isRegenerate)
+    // response 是后端返回的完整对象: { success, message, data: { ... } }
+    translation.value = response.data
+    ElMessage.success(isRegenerate ? '翻译重新生成成功' : '翻译生成成功')
+  } catch (error: any) {
+    console.error('翻译失败:', error)
+    ElMessage.error(error.response?.data?.detail || '翻译失败，请检查DeepSeek API配置')
+  } finally {
+    translationLoading.value = false
+  }
+}
+
+// 复制翻译内容到剪贴板
+const copyTranslationToClipboard = async () => {
+  if (!translation.value?.translated_content_html) {
+    ElMessage.warning('没有翻译内容可复制')
+    return
+  }
+
+  try {
+    await navigator.clipboard.writeText(translation.value.translated_content_html)
+    ElMessage.success('翻译内容已复制到剪贴板')
+  } catch (error) {
+    console.error('复制失败:', error)
+    ElMessage.error('复制失败，请手动复制')
+  }
+}
+
+// 监听对话框关闭，清空AI分析和翻译数据
+watch(dialogVisible, (newVal) => {
+  if (!newVal) {
+    aiAnalysis.value = null
+    translation.value = null
+  }
+})
 
 onMounted(() => {
   loadArticles()
@@ -354,6 +580,105 @@ onMounted(() => {
 
 .article-detail {
   padding: 20px 0;
+}
+
+/* AI分析部分样式 */
+.ai-analysis-section {
+  margin-top: 24px;
+}
+
+.no-ai-analysis {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.ai-result {
+  padding: 16px 0;
+}
+
+.ai-analysis-content {
+  background-color: #f5f7fa;
+  border-left: 4px solid #409eff;
+  padding: 20px;
+  border-radius: 4px;
+}
+
+.ai-analysis-content p {
+  margin: 0;
+  line-height: 1.8;
+  font-size: 15px;
+  color: #303133;
+  white-space: pre-wrap;
+}
+
+/* AI翻译部分样式 */
+.translation-section {
+  margin-top: 24px;
+}
+
+.no-translation {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.translation-result {
+  padding: 16px 0;
+}
+
+.chinese-notice {
+  margin-bottom: 16px;
+}
+
+.translation-content {
+  background-color: #f0f9ff;
+  border-left: 4px solid #67c23a;
+  padding: 20px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+}
+
+.translation-content h4 {
+  margin: 0 0 12px 0;
+  color: #409eff;
+  font-size: 16px;
+}
+
+.translated-text p {
+  margin: 0;
+  line-height: 1.8;
+  font-size: 15px;
+  color: #303133;
+  white-space: pre-wrap;
+}
+
+.translated-html-preview {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background-color: #e1f3d8;
+  border-radius: 4px;
+  color: #67c23a;
+}
+
+.key-points-list li {
+  margin-bottom: 8px;
+  color: #606266;
+}
+
+.entities {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.entity-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.entity-list {
+  color: #606266;
+  flex: 1;
 }
 
 /* 表格样式优化 */

@@ -6,7 +6,7 @@ import axios from 'axios'
 
 // 创建 axios 实例
 const apiClient = axios.create({
-  baseURL: 'http://localhost:8000/v1/admin',
+  baseURL: 'http://localhost:8001/v1/admin',
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json'
@@ -76,6 +76,16 @@ export const deleteArticle = (id: number): Promise<any> => {
 // 批量删除文章
 export const batchDeleteArticles = (article_ids: number[]): Promise<any> => {
   return apiClient.delete('/articles/batch/delete', { data: { article_ids } })
+}
+
+// 生成AI分析（注意：这个API在公开的articles路由下）
+export const generateAIAnalysis = (id: number, forceRegenerate: boolean = false): Promise<any> => {
+  return axios.post(`http://localhost:8000/v1/articles/${id}/analyze?force_regenerate=${forceRegenerate}`)
+}
+
+// 生成AI翻译（使用admin路由）
+export const generateTranslation = (id: number, forceRegenerate: boolean = false): Promise<any> => {
+  return apiClient.post(`/articles/${id}/translate?force_regenerate=${forceRegenerate}`)
 }
 
 // ==================== 爬虫管理 ====================

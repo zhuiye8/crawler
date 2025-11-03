@@ -37,12 +37,12 @@ class Article(Base):
     # 内容字段
     content_url = Column(Text)  # 药渡云等平台的文章URL
     content_text = Column(Text)  # 文章纯文本内容
+    content_html = Column(Text)  # 文章完整HTML内容（通用字段，无论来源）
     content_source = Column(String(50), default="pharnexcloud")  # 内容来源标记：pharnexcloud/wechat
+    original_source_url = Column(Text)  # 原文链接（微信公众号等）
 
-    # 微信公众号相关字段（新增）
-    original_source_url = Column(Text)  # 微信公众号原文链接
-    wechat_content_html = Column(Text)  # 微信文章完整HTML内容（如果爬取成功）
-    wechat_content_text = Column(Text)  # 微信文章完整纯文本（如果爬取成功）
+    # AI翻译字段
+    translated_content_html = Column(Text)  # 翻译后的HTML内容
 
     # 系统字段
     canonical_hash = Column(String(64), unique=True, nullable=False, index=True)  # 内容去重哈希

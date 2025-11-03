@@ -48,7 +48,10 @@ class ArticleDetail(BaseModel):
     tags: Optional[List[str]] = None
     published_at: datetime
     content_url: Optional[str] = None
-    content_text_excerpt: Optional[str] = None
+    content_text: Optional[str] = None  # Full plain-text content
+    content_html: Optional[str] = None  # Full HTML content
+    content_source: Optional[str] = None  # 内容来源标识
+    translated_content_html: Optional[str] = None  # AI翻译后的HTML内容
     ai_analysis: Optional[dict] = None
 
     class Config:
@@ -159,8 +162,9 @@ class ArticleResponse(BaseModel):
 
 class ArticleDetailResponse(ArticleResponse):
     """Article detail response with full content"""
-    content_text: Optional[str]
-    wechat_content_text: Optional[str]
+    content_text: Optional[str] = None
+    content_html: Optional[str] = None
+    translated_content_html: Optional[str] = None
 
 
 class ArticleUpdateRequest(BaseModel):

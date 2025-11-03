@@ -14,6 +14,7 @@ from app.schemas import (
     ArticleUpdateRequest,
     BatchDeleteRequest
 )
+from app.services.translation_service import translate_article_html, detect_chinese_content
 
 router = APIRouter(prefix="/articles", tags=["Admin-Articles"])
 
@@ -170,3 +171,74 @@ async def batch_delete_articles(
         "deleted_count": deleted_count,
         "total_requested": len(request.article_ids)
     }
+
+
+@router.post("/{article_id}/translate")
+async def translate_article(
+    article_id: int,
+    force_regenerate: bool = Query(False, description="Force regenerate translation"),
+    db: AsyncSession = Depends(get_db)
+):
+    """Generate AI translation for article (Admin) - 只翻译HTML内容，保持格式和样式"""
+
+    # 获取文章
+    result = await db.execute(
+        select(Article).where(Article.id == article_id, Article.is_deleted == False)
+    )
+    article = result.scalar_one_or_none()
+
+    if not article:
+        raise HTTPException(status_code=404, detail="Article not found")
+
+    # 检查是否已有翻译（如果不是强制重新翻译）
+    if not force_regenerate and article.translated_content_html:
+        return {
+            "success": True,
+            "message": "返回已有翻译",
+            "data": {
+                "translated_content_html": article.translated_content_html,
+                "is_chinese": detect_chinese_content(article.content_html or ""),
+                "requires_translation": False
+            }
+        }
+
+    try:
+        # 检测文章语言（只检测HTML内容）
+        content_to_check = article.content_html or ""
+        is_chinese = detect_chinese_content(content_to_check)
+
+        if is_chinese:
+            # 中文文章不需要翻译，直接返回原HTML
+            article.translated_content_html = article.content_html
+            await db.commit()
+
+            return {
+                "success": True,
+                "message": "检测到中文文章，无需翻译",
+                "data": {
+                    "translated_content_html": article.content_html,
+                    "is_chinese": True,
+                    "requires_translation": False
+                }
+            }
+
+        # 非中文文章，执行HTML翻译
+        translated_html = await translate_article_html(article.content_html)
+
+        # 更新文章的翻译字段
+        article.translated_content_html = translated_html
+        await db.commit()
+
+        return {
+            "success": True,
+            "message": "翻译完成",
+            "data": {
+                "translated_content_html": translated_html,
+                "is_chinese": False,
+                "requires_translation": True
+            }
+        }
+
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"翻译失败: {str(e)}")

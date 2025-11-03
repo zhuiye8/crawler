@@ -3,7 +3,7 @@ version: '3.8'
 services:
   # PostgreSQL数据库
   postgres:
-    image: pgvector/pgvector:pg15
+    image: pgvector/pgvector:pg16
     container_name: medical-news-postgres
     environment:
       POSTGRES_DB: medical_news

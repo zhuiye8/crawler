@@ -97,21 +97,88 @@ curl "http://localhost:8000/v1/articles?from_date=2025-10-01"
   "tags": ["减肥药"],
   "published_at": "2025-11-03T10:00:00",
   "content_url": "https://www.pharnexcloud.com/...",
-  "content_text_excerpt": "文章内容前500字...",
+  "content_text": "完整的文章纯文本内容...",
+  "content_html": "<div>完整的HTML内容（包含格式，图片，链接等）...</div>",
+  "content_source": "wechat",
   "ai_analysis": {
-    "summary": "AI生成的摘要",
-    "key_points": ["要点1", "要点2"],
-    "entities": {
-      "drugs": ["司美格鲁肽"],
-      "companies": ["Novo Nordisk"]
-    }
+    "analysis": "信达生物自主研发的GCG/GLP-1双受体激动剂玛仕度肽在其Ⅲ期临床试验DREAMS-3中展现出显著优于司美格鲁肽的综合疗效。该研究针对中国2型糖尿病合并肥胖患者，结果显示玛仕度肽组有49.7%的患者实现血糖达标且体重下降≥10%，远高于司美格鲁肽组的21%。这一突破性成果不仅验证了GCG/GLP-1双靶点激动机制的临床优势，也为信达生物在代谢疾病治疗领域的差异化竞争奠定了基础。"
   }
 }
 ```
 
+**内容字段说明**:
+- `content_text`: 文章完整纯文本内容
+- `content_html`: 文章完整HTML格式内容（通用字段，适用于所有数据源）
+- `content_source`: 内容来源标识（如"wechat"、"pharnexcloud"等）
+
+**通用设计说明**:
+- `content_html` 是通用字段，无论内容来源是微信、药渡云还是其他数据源，都使用统一字段名
+- 系统会智能选择最佳的HTML内容：优先使用微信HTML（格式更丰富），否则使用其他来源的HTML
+- `content_text` 提供纯文本版本，便于搜索和处理
+- 前端可根据需要选择使用HTML格式（保留样式）或纯文本格式
+
 **示例**:
 ```bash
 curl http://localhost:8000/v1/articles/1
+```
+
+### 生成AI分析
+
+为指定文章生成或获取AI智能分析。支持自动缓存，避免重复分析。
+
+**端点**: `POST /v1/articles/{article_id}/analyze`
+
+**路径参数**:
+| 参数 | 类型 | 说明 |
+|-----|------|-----|
+| article_id | integer | 文章ID |
+
+**查询参数**:
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+|-----|------|------|-------|-----|
+| force_regenerate | boolean | 否 | false | 是否强制重新生成分析 |
+
+**响应** (200 OK):
+```json
+{
+  "success": true,
+  "message": "AI分析完成",
+  "data": {
+    "analysis": "信达生物自主研发的GCG/GLP-1双受体激动剂玛仕度肽（mazdutide）在其Ⅲ期临床试验DREAMS-3中，针对中国2型糖尿病合并肥胖患者，展现出在血糖控制与体重管理方面的综合疗效显著优于国际主流药物司美格鲁肽。具体数据显示，玛仕度肽组有49.7%的患者实现血糖达标且体重下降≥10%，远高于司美格鲁肽组的21%..."
+  }
+}
+```
+
+**特性说明**:
+- 🧠 **智能缓存**: 已有分析时直接返回，避免重复调用AI API
+- 🔄 **强制重新生成**: 设置 `force_regenerate=true` 可重新分析
+- 📝 **专业分析**: 150-250字的医药行业专业分析
+- 🇨🇳 **中文输出**: 简体中文，专业但易懂
+- ⚡ **快速响应**: 使用DeepSeek API，响应速度快
+
+**示例**:
+```bash
+# 首次生成AI分析
+curl -X POST http://localhost:8000/v1/articles/62/analyze
+
+# 获取已有分析（缓存）
+curl -X POST http://localhost:8000/v1/articles/62/analyze?force_regenerate=false
+
+# 强制重新生成
+curl -X POST http://localhost:8000/v1/articles/62/analyze?force_regenerate=true
+```
+
+**错误响应**:
+```json
+# 文章不存在
+{
+  "detail": "Article not found"
+}
+
+# AI分析失败
+{
+  "detail": "AI分析失败: DeepSeek API key not configured"
+}
 ```
 
 ---
@@ -629,7 +696,7 @@ curl http://localhost:8000/v1/admin/analytics/trends?days=7
 **500 Internal Server Error**:
 ```json
 {
-  "detail": "Chat error: OpenAI API key not configured"
+  "detail": "Chat error: DeepSeek API key not configured"
 }
 ```
 
@@ -663,13 +730,22 @@ FastAPI自动生成的交互式API文档：
 
 虽然API完全开放，但在生产环境中建议：
 - 使用反向代理（Nginx）添加基础的IP白名单
-- 监控OpenAI API使用量，避免超额费用
+- 监控DeepSeek API使用量，避免超额费用
 - 定期检查数据库访问日志
 - 考虑添加简单的API key或rate limiting（如有需要）
 
 ---
 
 ## 更新日志
+
+### v1.1.0 (2025-11-03)
+- 🆕 **AI智能分析**: 新增文章AI分析功能，支持一键生成专业医药分析
+- 🔄 **DeepSeek集成**: 完全替换OpenAI，使用DeepSeek API提供更快更经济的AI服务
+- 💾 **智能缓存**: AI分析结果自动缓存，避免重复调用API节省成本
+- 🎯 **强制重新生成**: 支持force_regenerate参数强制重新分析
+- 🇨🇳 **专业中文分析**: 150-250字医药行业专业分析，简体中文输出
+- 🎨 **后台UI更新**: 管理后台新增AI分析模块，支持查看和重新生成
+- 🗃️ **数据格式统一**: 清理旧格式数据，统一使用简化分析格式
 
 ### v1.0.0 (2025-11-03)
 - ✅ 完整的文章管理API

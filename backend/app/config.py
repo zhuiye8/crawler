@@ -21,8 +21,14 @@ class Settings(BaseSettings):
     S3_BUCKET_CLEAN: str = "medical-news-clean"
     S3_BUCKET_ATTACHMENTS: str = "medical-news-attachments"
 
-    # OpenAI
-    OPENAI_API_KEY: str
+    # AI服务配置（支持OpenAI和DeepSeek）
+    AI_API_KEY: str = "sk-placeholder"  # AI API密钥（OpenAI或DeepSeek）
+    AI_API_BASE: str = "https://api.deepseek.com"  # API基础URL
+    AI_MODEL_CHAT: str = "deepseek-chat"  # 对话模型
+
+    # 向量嵌入配置（可选，暂不启用）
+    EMBEDDING_ENABLED: bool = False
+    OPENAI_API_KEY: str = "sk-placeholder"  # 仅用于embedding
 
     # JWT
     JWT_SECRET_KEY: str = "your-secret-key-change-this-in-production"
@@ -45,13 +51,19 @@ class Settings(BaseSettings):
     # Cleanup
     CLEANUP_DELETED_AFTER_DAYS: int = 30  # 物理删除软删除文章的天数阈值
 
+    # Docker配置字段（.env文件中有但不需要在应用中使用）
+    POSTGRES_PASSWORD: str = "postgres123"  # Docker compose需要
+    MINIO_ROOT_USER: str = "minioadmin"  # Docker compose需要
+    MINIO_ROOT_PASSWORD: str = "minioadmin123"  # Docker compose需要
+    FRONTEND_URL: str = "http://localhost:5173"  # 前端URL
+
     @property
     def cors_origins_list(self) -> list[str]:
         """Parse CORS origins string to list"""
         return [origin.strip() for origin in self.API_CORS_ORIGINS.split(",")]
 
     class Config:
-        env_file = ".env"
+        env_file = "../.env"  # 指向项目根目录的.env文件
         case_sensitive = True
 
 
