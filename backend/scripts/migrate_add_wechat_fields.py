@@ -1,4 +1,12 @@
-"""数据库迁移：添加微信公众号相关字段"""
+"""
+⚠️ DEPRECATED - 此迁移脚本已过时
+==========================================
+此脚本添加的 wechat_content_html 和 wechat_content_text 字段已被删除。
+新的数据库结构使用通用的 content_html 字段和 content_source 标记。
+
+请勿运行此脚本！如需了解当前字段结构，请查看 app/models.py 中的 Article 模型。
+==========================================
+"""
 
 import asyncio
 import sys

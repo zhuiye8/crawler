@@ -1,8 +1,15 @@
 """FastAPI main application"""
 
+# ============================================================================
+# ⚠️ 重要：必须在所有导入之前设置事件循环策略
+# Windows平台需要ProactorEventLoop才能支持子进程操作（patchright需要）
+# ============================================================================
 import sys
+if sys.platform == 'win32':
+    import asyncio
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
 import logging
-import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,16 +19,13 @@ from app.api.admin import articles as admin_articles, crawler as admin_crawler, 
 from app.config import settings
 from app.tasks.cleanup import schedule_cleanup_task
 
-# Windows 平台配置
+# Windows 平台 UTF-8 编码配置
 if sys.platform == 'win32':
     # 设置标准输出使用 UTF-8 编码
     if hasattr(sys.stdout, 'reconfigure'):
         sys.stdout.reconfigure(encoding='utf-8')
     if hasattr(sys.stderr, 'reconfigure'):
         sys.stderr.reconfigure(encoding='utf-8')
-
-    # 设置 Windows 事件循环策略以支持子进程（patchright 需要）
-    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 # 配置日志使用 UTF-8 编码
 logging.basicConfig(
@@ -42,6 +46,11 @@ scheduler = AsyncIOScheduler()
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     # 启动时执行
+    # 验证事件循环类型
+    loop = asyncio.get_running_loop()
+    logger.info(f"✅ 事件循环类型: {type(loop).__name__}")
+    logger.info(f"✅ 事件循环策略: {type(asyncio.get_event_loop_policy()).__name__}")
+
     logger.info("🚀 启动定时任务调度器...")
 
     # 配置清理任务

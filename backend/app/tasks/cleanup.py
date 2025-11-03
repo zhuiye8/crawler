@@ -65,7 +65,7 @@ async def cleanup_deleted_articles():
                         logger.warning(f"⚠️  删除S3文件失败 (cleaned.txt): {e}")
 
                     # 删除微信原文（如果有）
-                    if article.wechat_content_html:
+                    if article.content_source == "wechat":
                         try:
                             s3_client.delete_object(settings.S3_BUCKET_RAW, f"{article_prefix}wechat_original.html")
                         except Exception as e:

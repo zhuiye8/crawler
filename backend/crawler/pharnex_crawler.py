@@ -34,11 +34,6 @@ class PharnexCrawler(BaseCrawler):
 
     async def crawl_list_page(self, page_num: int = 1) -> List[Dict]:
         """爬取文章列表页"""
-        # 确保 Windows 上的事件循环策略正确（在使用 patchright 之前设置）
-        import sys
-        if sys.platform == 'win32':
-            asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-
         url = f"{self.BASE_URL}?page={page_num}"
         articles = []
 

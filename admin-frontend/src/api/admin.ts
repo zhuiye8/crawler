@@ -6,7 +6,7 @@ import axios from 'axios'
 
 // 创建 axios 实例
 const apiClient = axios.create({
-  baseURL: 'http://localhost:8001/v1/admin',
+  baseURL: 'http://localhost:8000/v1/admin',
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json'
