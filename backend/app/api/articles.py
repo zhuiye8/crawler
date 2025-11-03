@@ -58,12 +58,19 @@ async def list_articles(
     # Build response
     items = []
     for article in articles:
+        # 获取数据源名称
+        source_result = await db.execute(
+            select(Source).where(Source.id == article.source_id)
+        )
+        source = source_result.scalar_one_or_none()
+        source_name = source.name if source else "未知来源"
+
         items.append(ArticleListItem(
             id=article.id,
             title=article.title,
             summary=article.summary,
             author=article.author,
-            source_name="药渡云",
+            source_name=source_name,
             category=article.category,
             tags=article.tags,
             published_at=article.published_at
@@ -93,6 +100,13 @@ async def get_article(
     if not article:
         raise HTTPException(status_code=404, detail="Article not found")
 
+    # 获取数据源名称
+    source_result = await db.execute(
+        select(Source).where(Source.id == article.source_id)
+    )
+    source = source_result.scalar_one_or_none()
+    source_name = source.name if source else "未知来源"
+
     # Get AI analysis
     ai_result = await db.execute(
         select(ArticleAIOutput).where(ArticleAIOutput.article_id == article_id)
@@ -110,7 +124,7 @@ async def get_article(
         title=article.title,
         summary=article.summary,
         author=article.author,
-        source_name="???",
+        source_name=source_name,
         category=article.category,
         tags=article.tags,
         published_at=article.published_at,

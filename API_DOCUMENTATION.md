@@ -307,9 +307,10 @@ curl "http://localhost:8000/v1/admin/articles/?keyword=GLP-1&from_date=2025-10-0
   "published_at": "2025-11-03T10:00:00",
   "content_url": "https://...",
   "content_text": "完整文本内容...",
+  "content_html": "<div>完整HTML内容...</div>",
   "content_source": "wechat",
   "original_source_url": "https://mp.weixin.qq.com/...",
-  "wechat_content_html": "<div>...</div>",
+  "translated_content_html": "<div>翻译后的HTML内容（如有）</div>",
   "created_at": "2025-11-03T09:00:00",
   "updated_at": "2025-11-03T09:30:00"
 }
@@ -736,7 +737,79 @@ FastAPI自动生成的交互式API文档：
 
 ---
 
+## 重要字段变更说明 ⚠️
+
+为了统一数据结构和提升可维护性，以下字段已在最新版本中移除：
+
+### 已删除的字段（请勿使用）
+- ❌ `wechat_content_html` - 已删除，请使用 `content_html`
+- ❌ `wechat_content_text` - 已删除，请使用 `content_text`
+- ❌ `translated_content_text` - 已删除，仅保留HTML翻译
+
+### 当前使用的字段
+- ✅ `content_html` - **通用HTML内容字段**（适用于所有数据源）
+- ✅ `content_text` - 纯文本内容
+- ✅ `content_source` - 内容来源标识（`pharnexcloud` / `wechat`）
+- ✅ `translated_content_html` - AI翻译后的HTML内容
+- ✅ `original_source_url` - 微信原文链接（如果来源是微信）
+
+### 迁移指南
+
+**旧代码**:
+```javascript
+// ❌ 不再支持
+const wechatHtml = article.wechat_content_html;
+```
+
+**新代码**:
+```javascript
+// ✅ 推荐使用
+const html = article.content_html;
+const source = article.content_source; // "pharnexcloud" 或 "wechat"
+const translation = article.translated_content_html; // 翻译内容（如有）
+```
+
+---
+
+## 翻译功能说明
+
+### AI翻译接口
+
+文章翻译API位于公开API部分（详见上文"生成翻译"章节），主要特性：
+
+**智能语言检测**:
+- 自动检测文章语言
+- 仅翻译非中文内容
+- 中文文章直接返回原文
+
+**HTML格式保留**:
+- 完整保留HTML标签和结构
+- 保持图片、链接等元素
+- 保留CSS类名和样式
+
+**缓存机制**:
+- 翻译结果存储在 `translated_content_html` 字段
+- 支持 `force_regenerate` 参数强制重新翻译
+
+**使用示例**:
+```bash
+# 翻译英文文章
+curl -X POST http://localhost:8000/v1/articles/1/translate
+
+# 强制重新翻译
+curl -X POST http://localhost:8000/v1/articles/1/translate?force_regenerate=true
+```
+
+---
+
 ## 更新日志
+
+### v1.2.0 (2025-11-03)
+- 🌍 **AI翻译功能**: 新增文章AI翻译接口，自动检测并翻译非中文内容
+- 🗄️ **数据结构优化**: 统一内容字段，移除特定来源字段
+- 🔧 **字段重构**: 删除 `wechat_content_*` 和 `translated_content_text` 字段
+- ✨ **通用设计**: 使用 `content_html` 和 `content_source` 统一处理所有数据源
+- 📝 **HTML保留**: 翻译时完整保留HTML格式和样式
 
 ### v1.1.0 (2025-11-03)
 - 🆕 **AI智能分析**: 新增文章AI分析功能，支持一键生成专业医药分析

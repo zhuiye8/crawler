@@ -150,6 +150,17 @@
           </el-descriptions-item>
         </el-descriptions>
 
+        <!-- 文章内容部分 -->
+        <el-divider content-position="left">文章内容</el-divider>
+        <div class="article-content-section">
+          <div v-if="currentArticle.content_html" class="article-content">
+            <div class="content-html" v-html="currentArticle.content_html"></div>
+          </div>
+          <div v-else class="no-content">
+            <el-empty description="暂无文章内容" />
+          </div>
+        </div>
+
         <!-- AI分析部分 -->
         <el-divider content-position="left">AI智能分析</el-divider>
         <div class="ai-analysis-section">
@@ -289,6 +300,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Delete } from '@element-plus/icons-vue'
 import {
   getArticles,
+  getArticleDetail,
   deleteArticle,
   batchDeleteArticles,
   generateAIAnalysis,
@@ -369,8 +381,17 @@ const handleSelectionChange = (selection: Article[]) => {
 
 // 查看详情
 const handleView = async (article: Article) => {
-  currentArticle.value = article
   dialogVisible.value = true
+
+  // 加载完整的文章详情（包含 content_html）
+  try {
+    const detailData = await getArticleDetail(article.id)
+    currentArticle.value = detailData
+  } catch (error) {
+    console.error('加载文章详情失败:', error)
+    ElMessage.error('加载文章详情失败')
+    currentArticle.value = article  // 降级使用列表数据
+  }
 
   // 自动加载AI分析（如果已有则直接返回，不会重新生成）
   if (article.id) {
@@ -580,6 +601,126 @@ onMounted(() => {
 
 .article-detail {
   padding: 20px 0;
+}
+
+/* 文章内容部分样式 */
+.article-content-section {
+  margin-top: 24px;
+  margin-bottom: 24px;
+}
+
+.article-content {
+  background-color: #ffffff;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  padding: 24px;
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.content-html {
+  line-height: 1.8;
+  color: #303133;
+  font-size: 15px;
+}
+
+/* 美化HTML内容中的元素 */
+.content-html :deep(h1),
+.content-html :deep(h2),
+.content-html :deep(h3),
+.content-html :deep(h4),
+.content-html :deep(h5),
+.content-html :deep(h6) {
+  margin: 20px 0 12px 0;
+  font-weight: 600;
+  color: #303133;
+}
+
+.content-html :deep(p) {
+  margin: 12px 0;
+  line-height: 1.8;
+}
+
+.content-html :deep(img) {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin: 12px 0;
+  display: block;
+}
+
+.content-html :deep(a) {
+  color: #409eff;
+  text-decoration: none;
+}
+
+.content-html :deep(a:hover) {
+  text-decoration: underline;
+}
+
+.content-html :deep(ul),
+.content-html :deep(ol) {
+  margin: 12px 0;
+  padding-left: 24px;
+}
+
+.content-html :deep(li) {
+  margin: 6px 0;
+  line-height: 1.6;
+}
+
+.content-html :deep(blockquote) {
+  margin: 16px 0;
+  padding: 12px 20px;
+  background-color: #f5f7fa;
+  border-left: 4px solid #409eff;
+  color: #606266;
+}
+
+.content-html :deep(code) {
+  background-color: #f5f7fa;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+  color: #e83e8c;
+}
+
+.content-html :deep(pre) {
+  background-color: #f5f7fa;
+  padding: 16px;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin: 12px 0;
+}
+
+.content-html :deep(pre code) {
+  background-color: transparent;
+  padding: 0;
+  color: #303133;
+}
+
+.content-html :deep(table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+}
+
+.content-html :deep(table th),
+.content-html :deep(table td) {
+  border: 1px solid #dcdfe6;
+  padding: 10px;
+  text-align: left;
+}
+
+.content-html :deep(table th) {
+  background-color: #f5f7fa;
+  font-weight: 600;
+}
+
+.no-content {
+  text-align: center;
+  padding: 40px 0;
 }
 
 /* AI分析部分样式 */

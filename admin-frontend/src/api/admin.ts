@@ -35,6 +35,10 @@ export interface Article {
   crawled_at: string
   content_source: string
   content_url: string | null
+  content_text?: string | null  // 文章纯文本内容（详情才有）
+  content_html?: string | null  // 文章HTML内容（详情才有）
+  translated_content_html?: string | null  // 翻译后的HTML内容（详情才有）
+  original_source_url?: string | null  // 微信原文链接
   is_deleted: boolean
   created_at: string
   updated_at: string
